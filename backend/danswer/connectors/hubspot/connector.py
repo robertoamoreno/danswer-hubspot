@@ -54,8 +54,19 @@ class HubSpotConnector(LoadConnector, PollConnector):
         return None
 
     def _process_tickets(
-        self, start: datetime | None = None, end: datetime | None = None
+       # self, start: datetime | None = None, end: datetime | None = None
+        self, start: str | None = None, end: str | None = None
+
     ) -> GenerateDocumentsOutput:
+        
+
+        start = "2023-02-01" 
+        end = "2023-02-30"
+
+        # Convert start and end to datetime objects
+        start = datetime.strptime(start, "%Y-%m-%d") if start else None
+        end = datetime.strptime(end, "%Y-%m-%d") if end else None
+
         if self.access_token is None:
             raise ConnectorMissingCredentialError("HubSpot")
 
@@ -65,7 +76,8 @@ class HubSpotConnector(LoadConnector, PollConnector):
         doc_batch: list[Document] = []
 
         for ticket in all_tickets:
-            updated_at = ticket.updated_at.replace(tzinfo=None)
+            updated_at = ticket.created_at.replace(tzinfo=None)
+    
             if start is not None and updated_at < start:
                 continue
             if end is not None and updated_at > end:
@@ -96,8 +108,8 @@ class HubSpotConnector(LoadConnector, PollConnector):
                         )
                         associated_notes.append(note.properties["hs_body_preview"])
 
-            associated_emails_str = " ,".join(associated_emails)
-            associated_notes_str = " ".join(associated_notes)
+            associated_emails_str = " ".join(str(email) for email in associated_emails if email is not None)
+            associated_notes_str = " ".join(str(note) for note in associated_notes if note is not None)
 
             content_text = f"{content_text}\n emails: {associated_emails_str} \n notes: {associated_notes_str}"
 
@@ -106,9 +118,10 @@ class HubSpotConnector(LoadConnector, PollConnector):
                     id=ticket.id,
                     sections=[Section(link=link, text=content_text)],
                     source=DocumentSource.HUBSPOT,
-                    semantic_identifier=title,
+                    #semantic_identifier=title,
+                    semantic_identifier=title if title else "",
                     # Is already in tzutc, just replacing the timezone format
-                    doc_updated_at=ticket.updated_at.replace(tzinfo=timezone.utc),
+                    doc_updated_at=ticket.created_at.replace(tzinfo=timezone.utc),
                     metadata={},
                 )
             )
